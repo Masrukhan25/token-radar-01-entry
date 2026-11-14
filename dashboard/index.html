@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Launch Radar — Pre-Token Protocols Ranked by Implied Value</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">◉</span>
+      <div>
+        <h1>Token Launch Radar</h1>
+        <p class="sub">Protokol tanpa token, diranking berdasarkan nilai implied — dan cara mem-farm-nya sebelum token itu ada.</p>
+      </div>
+    </div>
+    <nav class="tabs" aria-label="Tampilan">
+      <button type="button" data-view="board" class="tab active">Board</button>
+      <button type="button" data-view="compare" class="tab">Pembanding Bertoken</button>
+      <button type="button" data-view="model" class="tab">Model</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <p id="err" class="err" hidden>Data tidak ditemukan. File <code>data.js</code> harus berada satu tingkat di atas folder dashboard.</p>
+
+  <!-- ============ BOARD ============ -->
+  <section id="view-board" class="view">
+    <div class="meta" id="meta"></div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="charts">
+      <figure class="card">
+        <figcaption><h2>Distribusi pita risiko — board</h2><p class="hint">Jumlah protokol per pita risiko (skor 0–100).</p></figcaption>
+        <div id="chart-risk" class="chart"></div>
+      </figure>
+      <figure class="card">
+        <figcaption><h2>10 teratas menurut implied value</h2><p class="hint">Nilai implied dalam dolar AS, dari rumus model.</p></figcaption>
+        <div id="chart-top" class="chart"></div>
+      </figure>
+    </div>
+
+    <div class="card filters" id="filters">
+      <div class="frow">
+        <label> Cari <input type="search" id="f-q" placeholder="Nama protokol…" autocomplete="off"></label>
+        <label> Chain <select id="f-chain"><option value="">Semua chain</option></select></label>
+        <label> Kategori <select id="f-cat"><option value="">Semua kategori</option></select></label>
+        <label> TVL <select id="f-tvl">
+          <option value="">Semua ukuran</option>
+          <option value="s">&lt; $25 jt (kecil)</option>
+          <option value="m">$25–100 jt (menengah)</option>
+          <option value="l">≥ $100 jt (besar)</option>
+        </select></label>
+        <label> Risiko <select id="f-risk">
+          <option value="">Semua pita</option>
+          <option value="Low">Low (0–24)</option>
+          <option value="Medium">Medium (25–49)</option>
+          <option value="High">High (50+)</option>
+        </select></label>
+        <label> Urutkan <select id="f-sort">
+          <option value="implied_value_usd:desc">Implied value ↓</option>
+          <option value="implied_value_usd:asc">Implied value ↑</option>
+          <option value="tvl_usd:desc">TVL ↓</option>
+          <option value="tvl_usd:asc">TVL ↑</option>
+          <option value="change_7d:desc">Pertumbuhan 7 hari ↓</option>
+          <option value="change_7d:asc">Pertumbuhan 7 hari ↑</option>
+          <option value="age_days:desc">Umur ↓</option>
+          <option value="age_days:asc">Umur ↑</option>
+        </select></label>
+        <button type="button" id="f-reset" class="btn ghost">Reset</button>
+      </div>
+      <p class="count" id="count"></p>
+    </div>
+
+    <div class="card tablewrap">
+      <table id="board">
+        <thead><tr>
+          <th data-sort="rank">#</th>
+          <th data-sort="name">Protokol</th>
+          <th>Chain</th>
+          <th>Kategori</th>
+          <th data-sort="tvl_usd" class="num">TVL</th>
+          <th data-sort="implied_value_usd" class="num">Implied value</th>
+          <th data-sort="change_7d" class="num">7 hari</th>
+          <th data-sort="age_days" class="num">Umur</th>
+          <th data-sort="risk_score" class="num">Risiko</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <p class="hint pad">Klik baris untuk membuka detail. Implied value adalah klaim model ini, bukan harga pasar — protokol-protokol ini belum punya token yang diperdagangkan.</p>
+    </div>
+  </section>
+
+  <!-- ============ DETAIL ============ -->
+  <section id="view-detail" class="view" hidden>
+    <button type="button" id="back" class="btn ghost">← Kembali ke board</button>
+    <div id="detail"></div>
+  </section>
+
+  <!-- ============ COMPARE ============ -->
+  <section id="view-compare" class="view" hidden>
+    <div class="card">
+      <h2>Benchmark — token yang sudah berdagang</h2>
+      <p>Protokol di bawah ini <strong>bukan bagian dari ranking board</strong>. Mereka sudah punya token yang diperdagangkan, jadi angkanya adalah <strong>market cap asli</strong> dari snapshot, bukan implied value. Mereka ditampilkan sebagai pembanding: dari merekalah multiple kategori di model ini dikalibrasi.</p>
+      <p class="hint">Market cap adalah fakta hari ini; implied value adalah klaim “berapa token ini akan bernilai jika diluncurkan dengan rekor seperti sekarang”. Mencampur keduanya dalam satu ranking akan membandingkan klaim dengan fakta.</p>
+    </div>
+    <div class="card tablewrap">
+      <table id="live">
+        <thead><tr><th>Protokol</th><th>Kategori</th><th>Chain</th><th class="num">TVL</th><th class="num">Market cap (asli)</th><th class="num">Mcap / TVL</th><th class="num">7 hari</th></tr></thead>
+        <tbody id="livebody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ MODEL ============ -->
+  <section id="view-model" class="view" hidden>
+    <div class="card">
+      <h2>Model: <code>impliedValue</code></h2>
+      <p class="formula" id="formula"></p>
+      <p id="formula-note"></p>
+      <ol class="factors">
+        <li><strong>TVL</strong> — total value locked protokol dalam dolar, dari snapshot. Semakin besar TVL, semakin besar nilai yang dikelola dan semakin dapat dipercaya rekornya.</li>
+        <li><strong>multiple(category)</strong> — median rasio market-cap/TVL dari protokol bertoken <em>di snapshot yang sama</em>, per kategori. Pasar menghargai satu dolar TVL berbeda-beda antar kategori; multiple ini menangkap perbedaan itu.</li>
+        <li><strong>growth(change_7d)</strong> — perubahan TVL 7 hari, dijepit −60% sampai +120% dan dibobot setengah. Satu minggu adalah sinyal berisik, jadi ia hanya menggeser nilai, tidak pernah mendominasinya.</li>
+        <li><strong>maturity(ageDays)</strong> — umur tanpa token: naik linier dari 0,60 (baru tercatat) ke 1,00 (3 tahun). Protokol yang bertahan lama tanpa token telah melewati setidaknya satu siklus pasar dengan TVL yang masih tercatat.</li>
+      </ol>
+      <p class="hint">Tidak ada nama protokol yang di-hardcode di rumus ini. Semua masukan adalah angka snapshot: TVL, pertumbuhan 7 hari, dan umur. Hasil dibulatkan ke dolar terdekat.</p>
+    </div>
+
+    <div class="card">
+      <h2>Tabel kalibrasi multiple per kategori</h2>
+      <p>Median mentah disusutkan ke median global <strong id="gmed"></strong> dengan prior k = <strong id="pk"></strong>, lalu dijepit <strong id="clamp"></strong>. Kategori dengan sampel kalibrasi ≤ 3 diberi label <span class="tag thin">kalibrasi tipis</span> — multiple-nya paling tidak kokoh.</p>
+      <div class="tablewrap"><table id="calib">
+        <thead><tr><th>Kategori</th><th class="num">n kalibrasi</th><th class="num">Median mentah</th><th class="num">Multiple final</th><th>Catatan</th></tr></thead>
+        <tbody id="calibbody"></tbody>
+      </table></div>
+      <h3>Catatan kejujuran</h3>
+      <ul class="notes">
+        <li><strong>Risk Curators (0,6365)</strong> bertumpu pada satu sampel. Penyusutan sudah menariknya turun dari 2,9747, tetapi ini tetap multiple paling tidak kokoh di papan atas — dan sebagian besar peringkat atas adalah Risk Curators.</li>
+        <li><strong>Onchain Capital Allocator (0,1078)</strong> bertumpu pada tiga sampel yang semuanya berasio di bawah 0,02. Token allocator sejauh ini dihargai pasar sangat murah relatif terhadap TVL yang mereka kelola; angka ini dibiarkan apa adanya.</li>
+        <li><strong>Prediction Market (1,5000)</strong> adalah multiple yang terjepit batas atas. Tanpa jepit, satu sampel berasio 400,20 akan membuat satu protokol mendominasi board sendirian. Jepit 1,50 adalah keputusan kehati-hatian yang disengaja, bukan hasil data.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Cara membaca skor risiko dan confidence</h2>
+      <p><strong>Skor risiko (0–100, makin besar makin berisiko)</strong> dijumlahkan dari ukuran TVL, momentum 7 hari, umur, jumlah rantai, dan risiko struktural kategori, lalu dijepit di 100. Pitanya: <span class="badge low">Low 0–24</span> <span class="badge med">Medium 25–49</span> <span class="badge high">High 50+</span>.</p>
+      <p><strong>Confidence</strong> menilai kelengkapan data, bukan keamanan protokol. <strong>High</strong>: change_7d dan listed_at terisi dan TVL ≥ $50 jt. <strong>Low</strong>: change_7d dan listed_at sama-sama hilang, atau TVL &lt; $10 jt, atau umur &lt; 90 hari. <strong>Medium</strong>: sisanya. Confidence rendah tidak mengeluarkan protokol dari board — ia hanya memberi label pada ketidakpastian.</p>
+      <p class="hint">Risiko dan confidence adalah dua hal berbeda: yang satu menilai “seberapa berbahaya memakai protokol ini”, yang lain “seberapa lengkap data yang mendasari penilaiannya”.</p>
+    </div>
+
+    <div class="card">
+      <h2>Yang tidak ada di snapshot</h2>
+      <p>Snapshot tidak membawa data program poin, program airdrop, tanggal peluncuran token, atau syarat kelayakan apa pun. Tidak ada satu pun langkah farm di board ini yang mengklaim ada program poin atau airdrop yang “confirmed”, “terverifikasi”, atau “dijamin”. Semua langkah adalah playbook umum untuk kategorinya; bagian yang bersifat spekulatif diberi label <span class="tag spec">[Spekulatif]</span>. Nama pool, nama program poin, atau angka reward spesifik tidak pernah ditulis — snapshot tidak membawanya, dan mengarangnya adalah fabrikasi.</p>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <p>Token Launch Radar · model <span id="mver"></span> · Snapshot DefiLlama per <span id="asof"></span>. Implied value adalah klaim model ini, bukan prediksi peluncuran token dan bukan nasihat investasi. “Tidak mencatat token” berarti DefiLlama tidak mencatatnya — bukan bukti tidak adanya token.</p>
+  </footer>
+</main>
+
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
